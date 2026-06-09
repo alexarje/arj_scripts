@@ -1,6 +1,7 @@
 #!/bin/bash
-# Navigate to the folder with JPG files. Change this to your desired directory.
-cd /path/to/your/folder
+# Usage: images_rename_exif_date.sh [image_directory]
+IMAGE_DIR="${1:-.}"
+cd "$IMAGE_DIR" || exit 1
 
 # Loop through all JPEG files in the directory.
 for file in *.jpg *.jpeg *.JPG *.JPEG; do

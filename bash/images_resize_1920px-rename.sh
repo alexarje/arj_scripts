@@ -1,9 +1,8 @@
 #!/bin/bash
 
-# Directory containing image files
-IMAGE_DIR="/path/to/your/images"
+# Usage: images_resize_1920px-rename.sh [image_directory]
+IMAGE_DIR="${1:-.}"
 
-# Verify the path and replace with your actual image directory path
 echo "Processing images in directory: $IMAGE_DIR"
 
 # Check if the directory exists

@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Script output (common defaults)
+output.mp4
+*_norm.mp4
+*_optimized.jpg

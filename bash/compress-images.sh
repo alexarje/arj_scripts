@@ -1,9 +1,8 @@
 #!/bin/bash
 
-# Directory containing image files
-IMAGE_DIR="images"
+# Usage: compress-images.sh [image_directory]
+IMAGE_DIR="${1:-.}"
 
-# Verify the path and replace with your actual image directory path
 echo "Processing images in directory: $IMAGE_DIR"
 
 # Check if the directory exists
