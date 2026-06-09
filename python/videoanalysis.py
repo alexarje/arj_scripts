@@ -1,35 +1,55 @@
-import musicalgestures as mg
-import os
+#!/usr/bin/env python3
+"""Run musicalgestures visualizations on videos in a directory."""
+
+from __future__ import annotations
+
+import argparse
 import glob
+import os
+import sys
+from pathlib import Path
 
-# Define the folder containing the MP4 files
-folder_path = '.'
+def process_videos(folder: Path) -> None:
+    import musicalgestures as mg
+    patterns = ["*.mp4", "*.MP4", "*.avi", "*.AVI"]
+    video_files: list[str] = []
+    for pattern in patterns:
+        video_files.extend(glob.glob(str(folder / pattern)))
 
-# Get a list of all MP4 files in the folder
-video_files = glob.glob(os.path.join(folder_path, '*.mp4')) + glob.glob(os.path.join(folder_path, '*.avi'))
+    if not video_files:
+        print(f"No video files found in {folder}", file=sys.stderr)
+        raise SystemExit(1)
 
-# Iterate through each MP4 file and process it
-for file_path in video_files:
-    print(f'Processing {file_path}')
-    
-    # Load and resample video file
-    v = mg.MgVideo(file_path)
-    
-    #v.grid(height=500, rows=3, cols=3)
-    v.average()
-    #v.videograms()
-    v.directograms()
-    v.motion()
-    
-    v.audio.waveform()
-    v.audio.spectrogram()
-    v.audio.tempogram()
-    #v.audio.descriptors()
-    
-    #impact_envelopes = v.impacts(detection=False) # returns an MgFigure with the impact envelopes
-    #impact_detection = v.impacts(detection=True, local_mean=0.1, local_maxima=0.15) # returns an MgFigure with the impact detection based on local mean and maxima
-    # access impacts envelope data
-    #impact_envelopes.data['impact envelopes']
-    
-    # possible to save the scaled coordinates of the face mask (x1, y1, x2, y2) for each frame in different file formats
-    #blur, data = v.blur_faces(save_data=True, data_format='csv')
+    for file_path in sorted(video_files):
+        print(f"Processing {file_path}")
+        video = mg.MgVideo(file_path)
+        video.average()
+        video.directograms()
+        video.motion()
+        video.audio.waveform()
+        video.audio.spectrogram()
+        video.audio.tempogram()
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate musicalgestures plots for videos in a directory.",
+    )
+    parser.add_argument(
+        "folder",
+        nargs="?",
+        type=Path,
+        default=Path("."),
+        help="Directory containing video files (default: current directory)",
+    )
+    return parser.parse_args(argv)
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    folder = args.folder.expanduser().resolve()
+    if not folder.is_dir():
+        print(f"Error: directory not found: {folder}", file=sys.stderr)
+        raise SystemExit(1)
+    os.chdir(folder)
+    process_videos(folder)

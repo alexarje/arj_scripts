@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Merge compatible video files in current directory into one output file.
-# Usage: video_merge_files2.sh [output.mp4] [--reencode] [--gpu]
+# Usage: video_merge_files_gpu.sh [output.mp4] [--reencode] [--gpu]
 
 set -euo pipefail
 

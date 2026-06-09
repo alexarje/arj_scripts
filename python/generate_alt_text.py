@@ -21,10 +21,6 @@ import os
 import re
 from pathlib import Path
 from typing import List, Tuple
-from PIL import Image
-import requests
-from tqdm import tqdm
-
 MD_GLOB = "content/**/*.md"
 REPORT_CSV = "alt_ai_report.csv"
 
@@ -93,6 +89,8 @@ def get_captioner_local():
 # Hugging Face Inference API fallback
 HF_API_URL = "https://api-inference.huggingface.co/models/nlpconnect/vit-gpt2-image-captioning"
 def caption_via_hf_api(image_path, token):
+    import requests
+
     headers = {"Authorization": f"Bearer {token}"}
     with open(image_path, "rb") as f:
         data = f.read()
@@ -173,6 +171,8 @@ def process_file(path: Path, caption_func, token, apply=False):
             # remote image: try HF API only if token provided
             if token and src.startswith("http"):
                 try:
+                    import requests
+
                     r = requests.get(src, timeout=20)
                     r.raise_for_status()
                     import tempfile
@@ -209,10 +209,17 @@ def process_file(path: Path, caption_func, token, apply=False):
     return changes
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Generate AI alt text for images in Hugo markdown.")
     parser.add_argument("--apply", action="store_true", help="Apply changes (create .bak files).")
     parser.add_argument("--report", default=REPORT_CSV)
+    parser.add_argument(
+        "--content-root",
+        type=Path,
+        default=Path("."),
+        help="Root directory to search for markdown (default: current directory)",
+    )
     args = parser.parse_args()
+    from tqdm import tqdm
 
     hf_token = os.environ.get("HF_API_TOKEN")
     caption_func = None
@@ -224,7 +231,8 @@ def main():
     else:
         print("HF_API_TOKEN provided: will use Hugging Face Inference API for captions.")
 
-    md_files = sorted(Path(".").glob(MD_GLOB))
+    content_root = args.content_root.expanduser().resolve()
+    md_files = sorted(content_root.glob("content/**/*.md")) if (content_root / "content").exists() else sorted(content_root.glob("**/*.md"))
     all_changes = []
     for md in tqdm(md_files, desc="Scanning markdown"):
         changes = process_file(md, caption_func, hf_token, apply=args.apply)

@@ -54,16 +54,11 @@ Version: 1.0
 License: MIT
 """
 
+import argparse
+import glob
 import os
 import sys
-import argparse
 from pathlib import Path
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.lib.enums import TA_LEFT, TA_CENTER
-import glob
 
 def read_text_file(filepath):
     """
@@ -143,7 +138,12 @@ def create_pdf_from_text_files(folder_path, output_path, title="Text Files Colle
         if success:
             print("PDF created successfully!")
     """
-    
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
+
     # Get all text files in the folder
     folder = Path(folder_path)
     text_files = list(folder.glob("*.txt"))

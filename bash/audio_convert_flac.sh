@@ -1,27 +1,28 @@
 #!/bin/bash
+# Usage: audio_convert_flac.sh [directory] [output.flac]
 
-# Directory containing .WAV and .wav files
-input_dir="."
-output_file="output.flac"
+set -euo pipefail
+shopt -s nullglob
 
-# Temporary file list to store input files for concatenation
-file_list="files.txt"
+input_dir="${1:-.}"
+output_file="${2:-output.flac}"
+file_list="$(mktemp)"
 
-# Create or clear the file list
-> $file_list
+if [ ! -d "$input_dir" ]; then
+  echo "Error: directory not found: $input_dir" >&2
+  exit 1
+fi
 
-# Adding each .WAV and .wav file to the file list
-for wav_file in "$input_dir"/*.{WAV,wav};
-do 
-    if [ -f "$wav_file" ]; then
-        echo "file '$wav_file'" >> $file_list
-    fi
+trap 'rm -f "$file_list"' EXIT
+
+for wav_file in "$input_dir"/*.{WAV,wav}; do
+  echo "file '$wav_file'" >> "$file_list"
 done
 
-# Merging all WAV files, downsampling to 48 kHz, and converting to 16-bit FLAC
-ffmpeg -f concat -safe 0 -i $file_list -ar 48000 -sample_fmt s16 -c:a flac "$output_file"
+if [ ! -s "$file_list" ]; then
+  echo "Error: no WAV files found in $input_dir" >&2
+  exit 1
+fi
 
-# Cleanup
-rm $file_list
-
+ffmpeg -f concat -safe 0 -i "$file_list" -ar 48000 -sample_fmt s16 -c:a flac "$output_file"
 echo "Merged FLAC file created: $output_file"

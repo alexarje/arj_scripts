@@ -25,16 +25,27 @@ Supports batch processing of multiple videos and GPU acceleration via FFmpeg.
 """
 
 import argparse
-import subprocess
-import shlex
-import os
 import math
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
+import os
+import shlex
+import subprocess
 from pathlib import Path
-import librosa
-import librosa.display
+
+np = plt = librosa = GridSpec = None
+
+
+def _load_plot_deps() -> None:
+    global np, plt, librosa, GridSpec
+    import librosa as _librosa
+    import matplotlib.pyplot as _plt
+    import numpy as _np
+    from matplotlib.gridspec import GridSpec as _GridSpec
+
+    np = _np
+    plt = _plt
+    librosa = _librosa
+    GridSpec = _GridSpec
+
 
 def run(cmd):
     """Run shell command and return combined output."""
@@ -351,7 +362,8 @@ Examples:
     parser.add_argument('--audio-mode', choices=['waveform', 'cqt'], default='waveform', help='Audio visualization mode: waveform or CQT spectrogram')
     
     args = parser.parse_args()
-    
+    _load_plot_deps()
+
     hwaccel = 'auto' if args.use_gpu else args.hwaccel
     
     if os.path.isfile(args.input):

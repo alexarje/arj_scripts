@@ -6,9 +6,13 @@ if [ "$#" -ne 2 ]; then
     exit 1
 fi
 
-# Assign arguments to variables
 input_pdf=$1
 output_dir=$2
+
+if [ ! -f "$input_pdf" ]; then
+  echo "Error: PDF not found: $input_pdf" >&2
+  exit 1
+fi
 
 # Create the output directory if it doesn't exist
 mkdir -p "$output_dir"

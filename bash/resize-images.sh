@@ -12,15 +12,8 @@ NC='\033[0m' # No Color
 TARGET_WIDTH=640
 QUALITY="${2:-90}"
 
-# Check args
-if [[ $# -lt 1 ]]; then
-    echo -e "${RED}Usage: $0 <folder> [quality]${NC}"
-    echo "Example: $0 ./static/images/2025/12"
-    echo "         $0 ./static/images/2025/12 85"
-    exit 1
-fi
-
-INPUT_DIR="$1"
+# Usage: resize-images.sh [folder] [quality]
+INPUT_DIR="${1:-.}"
 
 # Validate directory
 if [[ ! -d "$INPUT_DIR" ]]; then

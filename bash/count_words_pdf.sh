@@ -1,19 +1,15 @@
 #!/bin/bash
+# Usage: count_words_pdf.sh [directory]
 
-# Check if the folder is provided
-if [ -z "$1" ]; then
-  echo "Usage: $0 <folder>"
+FOLDER="${1:-.}"
+
+if [ ! -d "$FOLDER" ]; then
+  echo "Error: directory not found: $FOLDER" >&2
   exit 1
 fi
 
-# Check if the folder exists
-if [ ! -d "$1" ]; then
-  echo "Folder not found!"
-  exit 1
-fi
-
-# Loop through all PDF files in the folder
-for pdf in "$1"/*.pdf; 
+shopt -s nullglob
+for pdf in "$FOLDER"/*.pdf; 
 do
   # Convert PDF to text
   pdftotext "$pdf" "${pdf%.pdf}.txt"

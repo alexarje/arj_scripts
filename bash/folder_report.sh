@@ -1,12 +1,12 @@
 #!/bin/bash
+# Usage: folder_report.sh [directory]
 
-# Check if the folder path is provided
-if [ -z "$1" ]; then
-  echo "Usage: $0 /path/to/folder"
+FOLDER="${1:-.}"
+
+if [ ! -d "$FOLDER" ]; then
+  echo "Error: directory not found: $FOLDER" >&2
   exit 1
 fi
-
-FOLDER=$1
 
 echo "Number of files by type:"
 echo "Audio: $(find "$FOLDER" -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.flac" \) | wc -l)"

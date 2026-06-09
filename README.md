@@ -177,10 +177,20 @@ bash/images_resize_1920px-rename.sh ~/Pictures/event
 
 ## Conventions
 
-- **Batch bash scripts** loop over `*.mp4`, `*.jpg`, etc. in the current working directory unless a folder argument is documented.
-- **Python CLIs** use `argparse`; prefer `--dry-run` on the conference scripts to preview before writing files.
+All scripts follow a small set of shared patterns:
+
+| Pattern | Bash | Python |
+|---------|------|--------|
+| **Folder input** | Optional `[directory]` argument, default `.` | Optional positional `folder`, default `.` |
+| **Cwd batch** | Process `*.ext` in current directory (video merge/export scripts) | — |
+| **Single-file input** | Two required args or `-i` flag (extract PDF images, fisheye tools) | One required video/recording path |
+| **Help** | `# Usage: script.sh [args]` at top of file | `argparse` with `--help` |
+| **Validation** | Check directory/file exists; exit 1 with message on stderr | Same via `Path.is_dir()` / `is_file()` |
+| **Preview** | Some merge scripts support dry-run (`-n`) | Conference scripts support `--dry-run` |
+
 - **ffmpeg** is used throughout; GPU scripts need appropriate drivers (NVENC, VAAPI, etc.).
 - Several bash/Python pairs overlap (`folder_report`, PDF word counts) — use whichever fits your workflow.
+- Optional Python dependencies are imported lazily so `--help` works without every package installed.
 
 ## License
 

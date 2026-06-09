@@ -2,12 +2,13 @@
 
 set -euo pipefail
 
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 <folder_with_png_files>"
+# Usage: create_collage.sh [directory]
+INPUT_DIR="${1:-.}"
+
+if [ ! -d "$INPUT_DIR" ]; then
+    echo "Error: directory not found: $INPUT_DIR" >&2
     exit 1
 fi
-
-INPUT_DIR="$1"
 BASE_NAME="collage"
 EXT="png"
 COLUMNS=5

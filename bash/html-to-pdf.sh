@@ -1,5 +1,5 @@
 #!/bin/bash
-# filepath: convert_html_to_pdf.sh
+# Usage: html-to-pdf.sh [html_directory]
 
 # Check if wkhtmltopdf is installed
 if ! command -v wkhtmltopdf &> /dev/null; then
@@ -15,8 +15,13 @@ if ! command -v pdfunite &> /dev/null; then
     exit 1
 fi
 
-# Set directory (default to current directory if not specified)
 HTML_DIR="${1:-.}"
+
+if [ ! -d "$HTML_DIR" ]; then
+  echo "Error: directory not found: $HTML_DIR" >&2
+  exit 1
+fi
+
 OUTPUT_PDF="combined_output.pdf"
 TEMP_DIR=$(mktemp -d)
 
