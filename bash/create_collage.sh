@@ -14,6 +14,14 @@ EXT="png"
 COLUMNS=5
 ROWS=8
 
+draw_bar() {
+    local cur=$1 total=$2 width=40 bar="" j pct filled
+    pct=$(( total > 0 ? cur * 100 / total : 100 ))
+    filled=$(( pct * width / 100 ))
+    for ((j=0; j<width; j++)); do [[ $j -lt $filled ]] && bar+="#" || bar+=" "; done
+    printf "\r  [%s] %3d%% (%d/%d)" "$bar" "$pct" "$cur" "$total"
+}
+
 if ! command -v montage &> /dev/null; then
     echo "ImageMagick is not installed. Install it with: sudo apt install imagemagick"
     exit 1
@@ -37,6 +45,8 @@ MAX_PER_COLLAGE=$((COLUMNS * ROWS))
 COLLAGE_COUNT=$(( (FILE_COUNT + MAX_PER_COLLAGE - 1) / MAX_PER_COLLAGE ))
 FOLDER_NAME=$(basename "$INPUT_DIR")
 
+echo "Creating $COLLAGE_COUNT collage(s) from $FILE_COUNT image(s)..."
+created=()
 for ((c=0; c<COLLAGE_COUNT; c++)); do
     START=$((c * MAX_PER_COLLAGE))
     CHUNK=("${FILES[@]:$START:MAX_PER_COLLAGE}")
@@ -54,7 +64,12 @@ for ((c=0; c<COLLAGE_COUNT; c++)); do
         ((i++))
     done
 
-    echo "Creating collage $((c+1)) with $CHUNK_COUNT files. Grid: ${COLUMNS}x${CHUNK_ROWS}"
     montage "${CHUNK[@]}" -tile "${COLUMNS}x${CHUNK_ROWS}" -geometry +0+0 "$OUTPUT_FILE"
-    echo "Collage created: $OUTPUT_FILE"
+    created+=("$OUTPUT_FILE ($CHUNK_COUNT files, ${COLUMNS}x${CHUNK_ROWS})")
+    draw_bar "$((c+1))" "$COLLAGE_COUNT"
+done
+echo
+
+for c in "${created[@]}"; do
+    echo "Collage created: $c"
 done

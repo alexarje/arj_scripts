@@ -10,6 +10,14 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+draw_bar() {
+    local cur=$1 total=$2 width=40 bar="" j pct filled
+    pct=$(( total > 0 ? cur * 100 / total : 100 ))
+    filled=$(( pct * width / 100 ))
+    for ((j=0; j<width; j++)); do [[ $j -lt $filled ]] && bar+="#" || bar+=" "; done
+    printf "\r  [%s] %3d%% (%d/%d)" "$bar" "$pct" "$cur" "$total"
+}
+
 # Defaults
 HFOV="${2:-204}"
 VFOV="${3:-204}"
@@ -59,37 +67,39 @@ echo "Processing ${#INPUT_FILES[@]} file(s)..."
 echo ""
 
 # Process each file
+total=${#INPUT_FILES[@]}
+count=0
+failed=()
 for INPUT_FILE in "${INPUT_FILES[@]}"; do
     BASENAME=$(basename "$INPUT_FILE" | sed 's/\.[^.]*$//')
-    
-    echo -e "${YELLOW}[Processing] $BASENAME${NC}"
-    
+    (( ++count ))
+
     # Step 1: Extract frame from INSP to JPG
-    echo -e "${YELLOW}  [1/2] Extracting JPG from INSP...${NC}"
     TEMP_JPG="$WORKDIR/${BASENAME}_temp.jpg"
     if ! ffmpeg -i "$INPUT_FILE" -frames:v 1 "$TEMP_JPG" -y 2>/dev/null; then
-        echo -e "${RED}  ✗ Failed to extract from $INPUT_FILE${NC}"
+        failed+=("$BASENAME (extract)")
+        draw_bar "$count" "$total"
         continue
     fi
-    echo -e "${GREEN}  ✓ Extracted${NC}"
-    
+
     # Step 2: Convert to equirectangular
-    echo -e "${YELLOW}  [2/2] Converting to equirectangular...${NC}"
     OUTPUT_FILE="$WORKDIR/${BASENAME}_equirect.jpg"
     if ! ffmpeg -i "$TEMP_JPG" \
         -vf "v360=input=dfisheye:output=e:ih_fov=$HFOV:iv_fov=$VFOV:w=$OUTPUT_WIDTH:h=$OUTPUT_HEIGHT:interp=lanczos" \
         -frames:v 1 "$OUTPUT_FILE" -y 2>/dev/null; then
-        echo -e "${RED}  ✗ Failed to convert${NC}"
+        failed+=("$BASENAME (convert)")
         rm -f "$TEMP_JPG"
+        draw_bar "$count" "$total"
         continue
     fi
-    
-    # Get dimensions
-    DIMS=$(ffprobe -v error -show_entries stream=width,height -of csv=p=0 "$OUTPUT_FILE" 2>/dev/null | head -1)
-    echo -e "${GREEN}  ✓ Converted to $OUTPUT_FILE ($DIMS)${NC}"
-    
-    # Cleanup
+
     rm -f "$TEMP_JPG"
+    draw_bar "$count" "$total"
+done
+echo
+
+for f in "${failed[@]}"; do
+    echo -e "${RED}✗ Failed: $f${NC}"
 done
 
 echo ""

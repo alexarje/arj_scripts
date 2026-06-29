@@ -27,6 +27,38 @@ require_cmd() {
   fi
 }
 
+draw_bar() {
+    local pct=$1 width=40 bar="" j filled
+    filled=$(( pct * width / 100 ))
+    for ((j=0; j<width; j++)); do [[ $j -lt $filled ]] && bar+="#" || bar+=" "; done
+    printf "\r  [%s] %3d%%" "$bar" "$pct"
+}
+
+# ffmpeg_bar <duration_seconds> <ffmpeg args...>
+# Run ffmpeg quietly with a live progress bar scaled to the given duration.
+ffmpeg_bar() {
+    local dur="${1:-0}"; shift
+    local pf total_us out_us pct pid rc=0
+    pf=$(mktemp)
+    total_us=$(awk "BEGIN{printf \"%d\", ($dur) * 1000000}")
+    ffmpeg -hide_banner -loglevel error -progress "$pf" "$@" &
+    pid=$!
+    while kill -0 "$pid" 2>/dev/null; do
+        out_us=$(grep "^out_time_us=" "$pf" 2>/dev/null | tail -1 | cut -d= -f2 || true)
+        if [[ "${out_us:-}" =~ ^[0-9]+$ && "${total_us:-}" =~ ^[0-9]+$ && $total_us -gt 0 ]]; then
+            pct=$(( out_us * 100 / total_us ))
+            [[ $pct -gt 100 ]] && pct=100
+            draw_bar "$pct"
+        fi
+        sleep 0.5
+    done
+    wait "$pid" || rc=$?
+    rm -f "$pf"
+    if [[ $rc -eq 0 ]]; then draw_bar 100; fi
+    echo
+    return $rc
+}
+
 input_dir=""
 output_file=""
 frame_duration="0.08"
@@ -135,7 +167,10 @@ printf "file '%s'\n" "$last_file" >> "$workdir/list.ffconcat"
 
 mkdir -p "$(dirname "$output_file")"
 
-ffmpeg -hide_banner -loglevel warning -y \
+# Output runs one frame_duration per source frame.
+total_dur=$(awk "BEGIN{printf \"%.3f\", ${#files[@]} * $frame_duration}")
+
+ffmpeg_bar "$total_dur" -y \
   -f concat -safe 0 -i "$workdir/list.ffconcat" \
   -vf "scale=${out_width}:-2,format=yuv420p" \
   -r "$out_fps" \

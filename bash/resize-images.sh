@@ -15,6 +15,14 @@ QUALITY="${2:-90}"
 # Usage: resize-images.sh [folder] [quality]
 INPUT_DIR="${1:-.}"
 
+draw_bar() {
+    local cur=$1 total=$2 width=40 bar="" j pct filled
+    pct=$(( total > 0 ? cur * 100 / total : 100 ))
+    filled=$(( pct * width / 100 ))
+    for ((j=0; j<width; j++)); do [[ $j -lt $filled ]] && bar+="#" || bar+=" "; done
+    printf "\r  [%s] %3d%% (%d/%d)" "$bar" "$pct" "$cur" "$total"
+}
+
 # Validate directory
 if [[ ! -d "$INPUT_DIR" ]]; then
     echo -e "${RED}Error: Directory '$INPUT_DIR' not found${NC}"
@@ -34,38 +42,35 @@ echo "Quality: $QUALITY%"
 echo "Found: $JPG_COUNT JPG files"
 echo ""
 
+mapfile -t jpgs < <(find "$INPUT_DIR" -maxdepth 1 -iname "*.jpg" -type f)
+
+# Drop files that already carry the _640px suffix.
+todo=()
+for jpg in "${jpgs[@]}"; do
+    [[ -z "$jpg" || "$jpg" =~ _640px\.jpg$ ]] && continue
+    todo+=("$jpg")
+done
+
+total=${#todo[@]}
 count=0
-while IFS= read -r jpg; do
-    [[ -z "$jpg" ]] && continue
-    
-    # Skip if already has _640px suffix
-    if [[ "$jpg" =~ _640px\.jpg$ ]]; then
-        continue
-    fi
-    
+failed=()
+for jpg in "${todo[@]}"; do
     FILENAME=$(basename "$jpg")
     BASENAME="${FILENAME%.*}"
     OUTPUT_JPG="$INPUT_DIR/${BASENAME}_640px.jpg"
-    
-    # Get original dimensions
-    ORIG_DIMS=$(identify "$jpg" 2>/dev/null | awk '{print $3}' || echo "N/A")
-    ORIG_SIZE=$(ls -lh "$jpg" 2>/dev/null | awk '{print $5}' || echo "N/A")
-    
-    # Resize to new file
-    echo -ne "  Resizing $FILENAME... "
+
     if convert "$jpg" -resize "${TARGET_WIDTH}x>" -quality "$QUALITY" "$OUTPUT_JPG" 2>/dev/null; then
-        # Get new dimensions
-        NEW_SIZE=$(ls -lh "$OUTPUT_JPG" 2>/dev/null | awk '{print $5}' || echo "N/A")
-        NEW_DIMS=$(identify "$OUTPUT_JPG" 2>/dev/null | awk '{print $3}' || echo "N/A")
-        
-        echo -e "${GREEN}✓${NC}"
-        echo -e "    Original: $ORIG_DIMS ($ORIG_SIZE)"
-        echo -e "    Resized:  $NEW_DIMS ($NEW_SIZE) → ${BASENAME}_640px.jpg"
         ((count++))
     else
-        echo -e "${RED}✗ Failed to resize${NC}"
+        failed+=("$FILENAME")
     fi
-done < <(find "$INPUT_DIR" -maxdepth 1 -iname "*.jpg" -type f)
+    draw_bar "$(( count + ${#failed[@]} ))" "$total"
+done
+echo ""
+
+for f in "${failed[@]}"; do
+    echo -e "${RED}✗ Failed to resize: $f${NC}"
+done
 
 echo ""
 echo -e "${GREEN}=== Complete ===${NC}"

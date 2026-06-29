@@ -11,43 +11,51 @@ if [ ! -d "$IMAGE_DIR" ]; then
   exit 1
 fi
 
-# Find and process all jpg, jpeg files
-find "$IMAGE_DIR" -type f \( -iname '*.jpg' -o -iname '*.jpeg' \) -exec bash -c '
-    for image; do
-        echo "Processing JPEG $image"
-        # Extracting the filename without extension
-        filename="${image%.*}"
-        extension="${image##*.}"
+draw_bar() {
+    local cur=$1 total=$2 width=40 bar="" j pct filled
+    pct=$(( total > 0 ? cur * 100 / total : 100 ))
+    filled=$(( pct * width / 100 ))
+    for ((j=0; j<width; j++)); do [[ $j -lt $filled ]] && bar+="#" || bar+=" "; done
+    printf "\r  [%s] %3d%% (%d/%d)" "$bar" "$pct" "$cur" "$total"
+}
 
-        # Create a new file name with a suffix to indicate it has been optimized
-        new_image="${filename}_optimized.${extension}"
+# Collect JPEG and PNG files (recursively), NUL-delimited for safe names.
+mapfile -d '' -t jpegs < <(find "$IMAGE_DIR" -type f \( -iname '*.jpg' -o -iname '*.jpeg' \) -print0)
+mapfile -d '' -t pngs < <(find "$IMAGE_DIR" -type f -iname '*.png' -print0)
 
-        # Automatically rotate images based on EXIF orientation and create a new file
-        jhead -autorot -ft "$image" "$new_image"
+total=$(( ${#jpegs[@]} + ${#pngs[@]} ))
+if [ "$total" -eq 0 ]; then
+  echo "No JPEG or PNG files found in $IMAGE_DIR."
+  exit 0
+fi
 
-        # Resize the new image file while preserving the aspect ratio
-        mogrify -resize "1920x1920>" "$new_image"
+count=0
 
-        # Optimize the new resized image for screen use without stripping EXIF data
-        jpegoptim --all-progressive --max=80 "$new_image"
-    done
-' bash {} +
+for image in "${jpegs[@]}"; do
+    filename="${image%.*}"
+    extension="${image##*.}"
+    new_image="${filename}_optimized.${extension}"
 
-# Find and process all png files
-find "$IMAGE_DIR" -type f -iname '*.png' -exec bash -c '
-    for image; do
-        echo "Processing PNG $image"
-        # Extracting the filename without extension
-        filename="${image%.*}"
-        extension="${image##*.}"
+    # Rotate based on EXIF orientation and write to the new file.
+    jhead -autorot -ft "$image" "$new_image"
+    # Resize while preserving aspect ratio.
+    mogrify -resize "1920x1920>" "$new_image"
+    # Optimize for screen use without stripping EXIF data.
+    jpegoptim --all-progressive --max=80 "$new_image" >/dev/null 2>&1
+    (( ++count ))
+    draw_bar "$count" "$total"
+done
 
-        # Create a new file name with a suffix to indicate it has been optimized
-        new_image="${filename}_optimized.${extension}"
+for image in "${pngs[@]}"; do
+    filename="${image%.*}"
+    extension="${image##*.}"
+    new_image="${filename}_optimized.${extension}"
 
-        # Copy the original PNG to a new file
-        cp "$image" "$new_image"
+    cp "$image" "$new_image"
+    optipng -o7 "$new_image" >/dev/null 2>&1
+    (( ++count ))
+    draw_bar "$count" "$total"
+done
+echo
 
-        # Optimize the new PNG image file
-        optipng -o7 "$new_image"
-    done
-' bash {} +
+echo "Processed $count image(s)."

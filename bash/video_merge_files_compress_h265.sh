@@ -1,6 +1,38 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+draw_bar() {
+    local pct=$1 width=40 bar="" j filled
+    filled=$(( pct * width / 100 ))
+    for ((j=0; j<width; j++)); do [[ $j -lt $filled ]] && bar+="#" || bar+=" "; done
+    printf "\r  [%s] %3d%%" "$bar" "$pct"
+}
+
+# ffmpeg_bar <duration_seconds> <ffmpeg args...>
+# Run ffmpeg quietly with a live progress bar scaled to the given duration.
+ffmpeg_bar() {
+    local dur="${1:-0}"; shift
+    local pf total_us out_us pct pid rc=0
+    pf=$(mktemp)
+    total_us=$(awk "BEGIN{printf \"%d\", ($dur) * 1000000}")
+    ffmpeg -hide_banner -loglevel error -progress "$pf" "$@" &
+    pid=$!
+    while kill -0 "$pid" 2>/dev/null; do
+        out_us=$(grep "^out_time_us=" "$pf" 2>/dev/null | tail -1 | cut -d= -f2 || true)
+        if [[ -n "${out_us:-}" && "${out_us:-0}" -gt 0 && "${total_us:-0}" -gt 0 ]]; then
+            pct=$(( out_us * 100 / total_us ))
+            [[ $pct -gt 100 ]] && pct=100
+            draw_bar "$pct"
+        fi
+        sleep 0.5
+    done
+    wait "$pid" || rc=$?
+    rm -f "$pf"
+    if [[ $rc -eq 0 ]]; then draw_bar 100; fi
+    echo
+    return $rc
+}
+
 ## video_merge_files_compress_h265.sh
 # Merge multiple video files (common extensions) into a single H.265 (HEVC) file.
 # Features:
@@ -78,6 +110,7 @@ fi
 
 IFS=$'\n' sorted=($(printf "%s\n" "${files[@]}" | sort))
 unset IFS
+total_dur=0
 for f in "${sorted[@]}"; do
     # produce absolute path so ffmpeg can read the files even when concat file is in /tmp
     if [[ "$f" = /* ]]; then
@@ -87,6 +120,8 @@ for f in "${sorted[@]}"; do
     fi
     safe_f=$(printf "%s" "$abs_f" | sed "s/'/'\\''/g")
     printf "file '%s'\n" "$safe_f" >> "$CONCAT_LIST"
+    d=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$f" 2>/dev/null || echo 0)
+    total_dur=$(awk "BEGIN{print $total_dur + ${d:-0}}")
 done
 
 # Detect encoder
@@ -156,7 +191,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
     echo "--- end concat list ---"
     echo "Dry-run enabled; not executing ffmpeg."
 else
-    ffmpeg "${FFMPEG_ARGS[@]}"
+    ffmpeg_bar "$total_dur" "${FFMPEG_ARGS[@]}"
 fi
 
 echo "Done. Output: $OUT"
