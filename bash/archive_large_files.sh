@@ -49,16 +49,41 @@ is_video() {
 
 echo "Scanning: $root for files larger than $min_size (this can take a while)"
 
-# Collect "size<TAB>path" NUL-delimited, sorted largest first.
-mapfile -d '' -t entries < <(find "$root" -type f -size +"$min_size" \
-  -printf '%s\t%p\0' 2>/dev/null | sort -z -t $'\t' -k1,1nr || true)
+# Stream the scan: large files come out prefixed "M<TAB><size><TAB><path>";
+# every directory emits a bare "S" tick so the live counter below keeps moving
+# even while nothing is matching.
+matches=()
+scanned=0
+scan_progress() {
+  printf '\r\033[K  %d folder(s) scanned, %d large file(s) found' \
+    "$scanned" "${#matches[@]}" >&2
+}
+while IFS= read -r -d '' rec; do
+  if [[ $rec == M$'\t'* ]]; then
+    matches+=("${rec#M$'\t'}")
+    scan_progress
+  else
+    (( ++scanned % 100 == 0 )) && scan_progress
+  fi
+done < <(find "$root" \
+  \( -type f -size +"$min_size" -printf 'M\t%s\t%p\0' \) -o \
+  \( -type d -printf 'S\0' \) \
+  2>/dev/null || true)
+scan_progress
+echo >&2
 
-if (( ${#entries[@]} == 0 )); then
+if (( ${#matches[@]} == 0 )); then
   echo "No files larger than $min_size found under: $root"
   exit 0
 fi
 
-(( top > 0 && top < ${#entries[@]} )) && entries=("${entries[@]:0:$top}")
+# Sort the "size<TAB>path" entries largest first.
+mapfile -d '' -t entries < <(printf '%s\0' "${matches[@]}" | sort -z -t $'\t' -k1,1nr)
+
+if (( top > 0 && top < ${#entries[@]} )); then
+  echo "Showing the $top largest of ${#entries[@]} file(s)."
+  entries=("${entries[@]:0:$top}")
+fi
 
 # Codecs where a re-encode to H.265/AV1 typically halves the size.
 legacy_codec() {
@@ -74,7 +99,9 @@ save_bytes=0
 declare -A ext_bytes=() ext_count=()
 
 echo
+idx=0
 for e in "${entries[@]}"; do
+  (( ++idx ))
   sz="${e%%$'\t'*}"
   p="${e#*$'\t'}"
   total_bytes=$(( total_bytes + sz ))
@@ -87,6 +114,7 @@ for e in "${entries[@]}"; do
   if is_video "$p"; then
     video_bytes=$(( video_bytes + sz ))
     if (( have_ffprobe )); then
+      printf '\r\033[K  [%d/%d] analyzing: %s' "$idx" "${#entries[@]}" "$(basename -- "$p")" >&2
       # codec, width, height from the video stream; duration from the container.
       read -r codec width height < <(ffprobe -v error -select_streams v:0 \
         -show_entries stream=codec_name,width,height \
@@ -111,6 +139,7 @@ for e in "${entries[@]}"; do
     fi
   fi
 
+  printf '\r\033[K' >&2
   printf '%9s  %s' "$(human "$sz")" "$p"
   [[ -n $note ]] && printf '  %s' "$note"
   printf '\n'

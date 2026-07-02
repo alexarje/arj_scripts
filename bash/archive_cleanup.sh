@@ -63,15 +63,33 @@ done
 echo "Scanning: $root (this can take a while on a large drive)"
 
 # One pass over the drive. Matched directories are pruned so we never descend
-# into (or double-count) anything already slated for removal.
-mapfile -d '' -t matches < <(find "$root" \
+# into (or double-count) anything already slated for removal. Matches come out
+# prefixed "M<TAB>"; every other directory emits a bare "S" tick so the live
+# counter below keeps moving even while nothing is matching.
+matches=()
+scanned=0
+scan_progress() {
+  printf '\r\033[K  %d folder(s) scanned, %d match(es) found' \
+    "$scanned" "${#matches[@]}" >&2
+}
+while IFS= read -r -d '' rec; do
+  if [[ $rec == M$'\t'* ]]; then
+    matches+=("${rec#M$'\t'}")
+    scan_progress
+  else
+    (( ++scanned % 100 == 0 )) && scan_progress
+  fi
+done < <(find "$root" \
   \( -type d \( -name .Spotlight-V100 -o -name .fseventsd -o -name .TemporaryItems \
-     -o -name .Trashes -o -name '.Trash-*' -o -name .dropbox.cache \) -prune -print0 \) -o \
+     -o -name .Trashes -o -name '.Trash-*' -o -name .dropbox.cache \) -prune -printf 'M\t%p\0' \) -o \
   \( -type f \( -name .DS_Store -o -name '._*' -o -name Thumbs.db -o -name desktop.ini \
      -o -name .apdisk -o -name .dropbox -o -name .dropbox.attr \
      -o -name '*.tmp' -o -name '*.temp' -o -name '*~' -o -name '*.swp' -o -name '~$*' \) \
-     -print0 \) \
+     -printf 'M\t%p\0' \) -o \
+  \( -type d -printf 'S\0' \) \
   2>/dev/null || true)
+scan_progress
+echo >&2
 
 category_of() {
   case "$(basename -- "$1")" in
@@ -100,7 +118,10 @@ fi
 
 # Measure sizes in one du call (bytes), then report per match and per category.
 echo "Measuring sizes of ${#targets[@]} match(es)..."
-mapfile -t sizes < <(printf '%s\0' "${targets[@]}" | du -sb --files0-from=- 2>/dev/null | cut -f1)
+mapfile -t sizes < <(printf '%s\0' "${targets[@]}" | du -sb --files0-from=- 2>/dev/null \
+  | awk -F'\t' -v total="${#targets[@]}" \
+      '{print $1; if (NR % 50 == 0) printf "\r\033[K  measured %d/%d", NR, total > "/dev/stderr"}')
+printf '\r\033[K' >&2
 
 human() { numfmt --to=iec --suffix=B "${1:-0}"; }
 
@@ -139,6 +160,7 @@ deleted=0
 failed=0
 for i in "${!targets[@]}"; do
   p="${targets[$i]}"
+  printf '\r\033[K  Deleting %d/%d' "$(( i + 1 ))" "${#targets[@]}" >&2
   if rm -rf -- "$p" 2>/dev/null; then
     (( ++deleted ))
     printf '[%s] %s\n' "${target_cats[$i]}" "$p" >> "$log"
@@ -150,10 +172,12 @@ for i in "${!targets[@]}"; do
       printf '[%s] %s\n' "${target_cats[$i]}" "$p" >> "$log"
     else
       (( ++failed ))
+      printf '\r\033[K' >&2
       echo "  Failed to delete: $p" >&2
     fi
   fi
 done
+printf '\r\033[K' >&2
 
 echo
 echo "Deleted $deleted item(s), freed about $(human "$total_bytes"). Log: $log"
