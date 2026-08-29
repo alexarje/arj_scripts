@@ -42,6 +42,9 @@ pip install PyPDF2 reportlab fpdf2
 
 # AI alt-text generation
 pip install transformers torch pillow requests tqdm
+
+# Audio annotation (nothing to install -- the scripts build their own venv on first run)
+python3 python/annotate_audio_folder_english.py --help
 ```
 
 ## Repository layout
@@ -145,6 +148,20 @@ bash/images_resize_1920px-rename.sh ~/Pictures/event
 | `web_video_download.sh` | Scrape video URLs from a page and download with wget |
 
 ## Python scripts
+
+### Audio annotation / transcription
+
+| Script | Description | Packages |
+|--------|-------------|----------|
+| `annotate_audio_folder_english.py` | Annotate every audio/video file in a folder on the GPU: transcript (`.txt`, `.srt`), speech and laughter tiers (`.eaf`, `.TextGrid`), JSON sidecar. English-pinned; `--language auto` for mixed material | self-installing — creates its own venv (`~/.venvs/annotate-audio`) on first run |
+| `annotate_audio_folder_norwegian.py` | The same, pinned to Norwegian | self-installing (shares the venv) |
+
+Both are single-file and standalone: copy one anywhere, run it with a folder, and the
+first run installs Whisper (faster-whisper, GPU), silero-vad and PANNs into a private
+venv. Transcripts keep a linear clock and every segment must overlap an independent
+speech detection, which removes the phrases a transcriber invents over silence; stereo
+channels are correlation-checked before any downmix; laughter thresholds come from each
+file's own score distribution.
 
 ### Video analysis
 
