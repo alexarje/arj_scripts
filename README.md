@@ -96,7 +96,7 @@ python3 python/video_extract_salient_frames.py recording.mp4 -o frames/
 | `video_merge_files_gpu.sh` | Merge with optional GPU re-encode (`--gpu`, `--reencode`) |
 | `video_merge_files_compress_h265.sh` | Merge to a single H.265 file |
 | `video_resize_hd.sh` | Resize all `.mp4` in cwd to 1080p/25fps (NVENC) |
-| `video_normalize_audio.sh` | Loudness-normalize audio → `*_norm.mp4` |
+| `video_normalize_audio.sh` | Level the speakers, then loudness-normalize audio → `*_norm.mp4`; `-p` for normalisation only, `-t` for another target |
 | `video_audio_export.sh` | Extract audio from each `.mp4` → `.aac` |
 | `split_video_left_right.sh` | Split one video into left/right halves |
 
