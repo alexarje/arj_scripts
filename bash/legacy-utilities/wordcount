@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Word count for one or more files.
+# Replaces the original gdialog-based wordcount.
+#
+# Usage: wordcount FILE...
+# Output: word count per file, plus total if multiple files
+
+set -euo pipefail
+
+if [[ $# -eq 0 ]]; then
+    echo "Usage: wordcount FILE..." >&2
+    exit 1
+fi
+
+total=0
+for f in "$@"; do
+    if [[ ! -f "$f" ]]; then
+        echo "Error: '$f' not found" >&2
+        continue
+    fi
+    count=$(wc -w < "$f")
+    total=$((total + count))
+    echo "$count\t$f"
+done
+
+[[ $# -gt 1 ]] && echo "$total\ttotal"

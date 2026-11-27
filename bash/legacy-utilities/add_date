@@ -1,0 +1,2 @@
+#!/bin/sh
+for f in "$@"; do mv "$f" "$(date -d@$(stat --printf='%Y' "$f") +%Y-%m-%d)-$f"; done
