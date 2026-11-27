@@ -51,9 +51,10 @@ python3 python/annotate_audio_folder_english.py --help
 
 ```
 arj_scripts/
-├── bash/          # Shell scripts (batch-oriented)
-├── python/        # Python scripts (CLI-oriented)
-└── LICENSE        # GPLv3
+├── bash/                   # Shell scripts (batch-oriented)
+│   └── legacy-utilities/   # Small helpers from 2015–2019 (date-prefix, byzanz, pdfcrop, etc.)
+├── python/                 # Python scripts (CLI-oriented)
+└── LICENSE                 # GPLv3
 ```
 
 ## Conference / recording pipeline
